@@ -36,6 +36,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
   <arg name="roll"  value="0"/>
   <arg name="pitch" value="0"/>
   <arg name="yaw"   default="0"/>
+  <arg name="mass"  default="35.0"/>
+  <arg name="cog_y" default="0.0"/>
+  <arg name="mi_z"  default="8.061"/>
+  <arg name="rdl"   default="5.83"/>
+  <arg name="rdq"   default="17.34"/>
+  <arg name="sdl"   default="0.0"/>
+  <arg name="sdq"   default="17.26"/>
 
   <arg name="namespace" default=""/>
   <arg name="config" default="base" />
@@ -48,29 +55,30 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
     </node>
 
     <!-- Filter for Imu message -->
-    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_madgwick">
+    <!-- <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_madgwick">
       <param name="~use_magnetic_field_msg" value="true" />
       <param name="~use_mag" value="true" />
       <param name="world_frame" value="enu" />
       <param name="publish_debug_topics" value="true" />
       <param name="~publish_tf" value="false" />
-    </node>
+    </node> -->
     <!--
       The filter needs MagneticField messages, so start a node to translate from the Vector3Stamped messages
       provided by the plugin
     -->
-    <node pkg="heron_gazebo" type="vector3_to_magnetic_field" name="mag_translation">
+    <!-- <node pkg="heron_gazebo" type="vector3_to_magnetic_field" name="mag_translation">
       <remap from="mag_in"    to="imu/mag_raw" />
       <remap from="mag_out"   to="imu/mag" />
-    </node>
+    </node> -->
 
     <!-- Heron thruster controller -->
-    <node pkg="heron_controller" type="controller" name="controller">
-      <rosparam file="$(find heron_gazebo)/config/heron_controller.yaml" />
-    </node>
+    <!-- <node pkg="heron_controller" type="controller" name="controller"> -->
+      <!-- <rosparam file="$(find heron_gazebo)/config/heron_controller.yaml" /> -->
+      <!-- <remap from="/odometry/filtered" to="pose_gt" /> -->
+    <!-- </node> -->
 
     <!-- Translate Imu's quaternion to Roll/Pitch/Yaw -->
-    <node pkg="heron_gazebo" type="rpy_translator" name="rpy_translator" />
+    <!-- <node pkg="heron_gazebo" type="rpy_translator" name="rpy_translator" /> -->
 
     <group if="$(eval namespace == '')">
       <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
@@ -84,19 +92,19 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
             args="-urdf -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -model $(arg namespace) -param /$(arg namespace)/robot_description"/>
     </group>
 
-    <include file="$(find heron_control)/launch/teleop.launch">
+    <!-- <include file="$(find heron_control)/launch/teleop.launch">
       <arg name="joystick"  value="true" />
       <arg name="namespace" value="$(arg namespace)" />
-    </include>
+    </include> -->
 
     <!-- Translate Twist message from twist_server to Wrench message -->
-    <node pkg="heron_gazebo" type="twist_translate" name="twist_translate">
+    <!-- <node pkg="heron_gazebo" type="twist_translate" name="twist_translate">
 	     <rosparam file="$(find heron_gazebo)/config/heron_controller.yaml" />
        <param name="cov_limits/velocity" value="0.01" />
-    </node>
+    </node> -->
 
     <!-- Translates navsat/velocity from Vector3Stamped to TwistStamped on navsat/vel -->
-    <node pkg="heron_gazebo" type="navsat_vel_translate" name="navvel_translate" />
+    <!-- <node pkg="heron_gazebo" type="navsat_vel_translate" name="navvel_translate" /> -->
 
     <node pkg="heron_gazebo" type="activate_control_service" name="activate_control_service" />
 
@@ -104,10 +112,15 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 
 
   <!-- Basic localization -->
-  <rosparam param="/$(arg namespace)/ekf_localization_node/tf_prefix" subst_value="True">$(arg namespace)</rosparam>
+  <!-- <rosparam param="/$(arg namespace)/ekf_localization_node/tf_prefix" subst_value="True">$(arg namespace)</rosparam>
   <rosparam param="/$(arg namespace)/navsat_transform_node/tf_prefix" subst_value="True">$(arg namespace)</rosparam>
-  <rosparam param="/$(arg namespace)/navsat_transform_node/use_odometry_yaw">true</rosparam>
-  <include file="$(find heron_control)/launch/control.launch" ns="/$(arg namespace)" />
+  <rosparam param="/$(arg namespace)/navsat_transform_node/use_odometry_yaw">false</rosparam>
+  <include file="$(find heron_control)/launch/control.launch" ns="/$(arg namespace)" /> -->
+
+  <!-- replaced by a node that publishes the tf from world to baselink based on ground truth odometry message-->
+  <node pkg="heron_control" type="gt_pub.py" name="gt_pub" output="screen">
+    <param name="namespace" value="$(arg namespace)" />
+  </node>
 
   <!-- Launches Heron's description nodes -->
   <include file="$(find heron_description)/launch/description.launch">
@@ -115,6 +128,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
     <arg name="hydro_debug" value="$(arg hydro_debug)" />
     <arg name="simulation"  value="true" />
     <arg name="config"      value="$(arg config)" />
+    <arg name="mass"  value="$(arg mass)" />
+    <arg name="cog_y" value="$(arg cog_y)"/>
+    <arg name="mi_z"  value="$(arg mi_z)"/>
+    <arg name="rdl"   value="$(arg rdl)"/>
+    <arg name="rdq"   value="$(arg rdq)"/>
+    <arg name="sdl"   value="$(arg sdl)"/>
+    <arg name="sdq"   value="$(arg sdq)"/>
   </include>
 
 </launch>

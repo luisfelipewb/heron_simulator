@@ -28,6 +28,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
   <arg name="x"     default="0"/>
   <arg name="y"     default="0"/>
   <arg name="yaw"   default="0"/>
+  <arg name="mass"  default="35.0"/>
+  <arg name="cog_y" default="0.0"/>
+  <arg name="mi_z"  default="8.061"/>
+  <arg name="rdl"   default="5.83"/>
+  <arg name="rdq"   default="17.34"/>
+  <arg name="sdl"   default="0.0"/>
+  <arg name="sdq"   default="17.26"/>
 
   <arg name="namespace" default="" />
 
@@ -42,12 +49,14 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
       <arg name="paused" value="$(arg paused)"/>
       <arg name="use_sim_time" value="true"/>
       <arg name="gui" value="$(arg gui)"/>
-      <arg name="headless" value="false"/>
+      <arg name="headless" value="true"/>
       <arg name="debug" value="false"/>
       <arg name="verbose" value="true"/>
   </include>
+  <!-- a static tf from world to utm -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="fixed_world" args="0 0 0 0 0 0 odom world"/>
 
-  <include file="$(find uuv_assistants)/launch/publish_world_ned_frame.launch"/>
+  <!-- <include file="$(find uuv_assistants)/launch/publish_world_ned_frame.launch"/> -->
 
   <node name="publish_world_models"
       pkg="uuv_assistants"
@@ -89,11 +98,18 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 
 
   <!-- Start simulating a Heron -->
-  <include file="$(find heron_gazebo)/launch/spawn_heron.launch">
+  <!-- <include file="$(find heron_gazebo)/launch/spawn_heron.launch">
     <arg name="x" value="$(arg x)" />
     <arg name="y" value="$(arg y)" />
     <arg name="yaw" value="$(arg yaw)" />
     <arg name="namespace" value="$(arg namespace)" />
-  </include>
+    <arg name="mass" value="$(arg mass)" />
+    <arg name="cog_y" value="$(arg cog_y)"/>
+    <arg name="mi_z"  value="$(arg mi_z)"/>
+    <arg name="rdl"   value="$(arg rdl)"/>
+    <arg name="rdq"   value="$(arg rdq)"/>
+    <arg name="sdl"   value="$(arg sdl)"/>
+    <arg name="sdq"   value="$(arg sdq)"/>
+  </include> -->
 
 </launch>
