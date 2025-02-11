@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # Software License Agreement (BSD)
 #
-# @author    Guy Stoppi <gstoppi@clearpathrobotics.com>
-# @copyright (c) 2018, Clearpath Robotics, Inc., All rights reserved.
+# @author    Luis Batista <luis.batista@gatech.edu>
+# @copyright (c) 2025, Georiga Institute of Technology, All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that
 # the following conditions are met:
@@ -26,35 +26,89 @@ from uuv_gazebo_ros_plugins_msgs.msg import FloatStamped
 from heron_msgs.msg import Drive
 import rospy
 
-def cmd_drive_callback(drive):
-    global p_left
-    global p_right
+class CmdDriveTranslator:
+    """
+    Translates Drive commands to individual thruster commands while simulating realistic
+    command update delays.
+    """
 
-    send = FloatStamped()
-    send.header.stamp = rospy.Time.now()
+    def __init__(self):
+        # Load configuration parameters
+        self.namespace = rospy.get_param("~namespace", "heron")
+        if self.namespace == "":
+            self.namespace = "heron"
+        self.publish_rate = rospy.get_param("~rate", 20)
+        self.publish_min_rate = rospy.get_param("~min_rate", 10)
+        self.max_update_rate = rospy.get_param("~max_update_rate", 1)
 
-    send.data = drive.left
-    p_left.publish(send)
+        # Calculate derived parameters
+        self.publish_period = 1.0 / self.publish_rate
+        self.max_cmd_delta = self.publish_period * self.max_update_rate
 
-    send.data = drive.right
-    p_right.publish(send)
+        # Initialize state
+        self.last_cmd_time = rospy.Time.now()
+        self.target_drive_cmd = Drive()
+        self.current_drive_cmd = Drive()
 
-def translate():
-    global p_left
-    global p_right
+        # Set up publishers
+        self.p_left = rospy.Publisher(f"{self.namespace}/thrusters/1/input", FloatStamped, queue_size=1)
+        self.p_right = rospy.Publisher(f"{self.namespace}/thrusters/0/input", FloatStamped, queue_size=1)
 
-    namespace = rospy.get_param("~namespace", "")
+        # Set up subscriber
+        self.cmd_drive_sub = rospy.Subscriber("cmd_drive", Drive, self.cmd_drive_callback, queue_size=1)
 
-    if namespace == "":
-        namespace = "heron"
+    def cmd_drive_callback(self, drive):
+        """Handle incoming drive commands."""
+        self.last_cmd_time = rospy.Time.now()
+        self.target_drive_cmd = drive
 
-    p_left = rospy.Publisher("/" + namespace + "/thrusters/1/input", FloatStamped, queue_size=1)
-    p_right = rospy.Publisher("/" + namespace + "/thrusters/0/input", FloatStamped, queue_size=1)
+    def update_and_publish_commands(self):
+        """Update current commands and publish to thrusters."""
+        # Update left thruster command
+        delta_left = self.target_drive_cmd.left - self.current_drive_cmd.left
+        self.current_drive_cmd.left += max(min(delta_left, self.max_cmd_delta), -self.max_cmd_delta)
 
-    cmd_drive_sub = rospy.Subscriber("cmd_drive", Drive, cmd_drive_callback)
+        # Update right thruster command
+        delta_right = self.target_drive_cmd.right - self.current_drive_cmd.right
+        self.current_drive_cmd.right += max(min(delta_right, self.max_cmd_delta), -self.max_cmd_delta)
 
-    rospy.spin()
+        # Prepare and publish messages
+        msg = FloatStamped()
+        msg.header.stamp = rospy.Time.now()
+
+        msg.data = self.current_drive_cmd.left
+        self.p_left.publish(msg)
+
+        msg.data = self.current_drive_cmd.right
+        self.p_right.publish(msg)
+
+    def run(self):
+        """Main run loop for the node."""
+        rate = rospy.Rate(self.publish_rate)
+
+        while not rospy.is_shutdown():
+            try:
+                # Check for command timeout
+                if (rospy.Time.now() - self.last_cmd_time).to_sec() > 1.0 / self.publish_min_rate:
+                    self.target_drive_cmd.left = 0
+                    self.target_drive_cmd.right = 0
+
+                self.update_and_publish_commands()
+                rate.sleep()
+
+            except rospy.ROSInterruptException:
+                rospy.loginfo("Node shutdown requested")
+                break
+            except Exception as e:
+                rospy.logerr(f"Error in main loop: {str(e)}")
+                break
 
 if __name__ == '__main__':
-    rospy.init_node("cmd_drive_to_thrusters")
-    translate()
+    try:
+        rospy.init_node("cmd_drive_translator")
+        node = CmdDriveTranslator()
+        node.run()
+    except rospy.ROSInterruptException:
+        pass
+    except Exception as e:
+        rospy.logerr(f"Failed to start node: {str(e)}")
