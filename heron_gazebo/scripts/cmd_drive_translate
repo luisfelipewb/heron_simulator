@@ -37,8 +37,8 @@ class CmdDriveTranslator:
         self.namespace = rospy.get_param("~namespace", "heron")
         if self.namespace == "":
             self.namespace = "heron"
-        self.publish_rate = rospy.get_param("~rate", 20)
-        self.publish_min_rate = rospy.get_param("~min_rate", 10)
+        self.publish_rate = rospy.get_param("~rate", 50)
+        self.publish_min_rate = rospy.get_param("~min_rate", 5)
         self.max_update_rate = rospy.get_param("~max_update_rate", 1)
 
         # Calculate derived parameters
